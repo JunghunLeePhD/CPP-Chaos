@@ -1,0 +1,5 @@
+.DS_Store
+*.mp4
+*.png
+.vscode
+movie_gen_exec
