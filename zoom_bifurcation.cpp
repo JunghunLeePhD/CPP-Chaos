@@ -9,33 +9,34 @@
 // --- Configuration ---
 const int WIDTH = 1280;
 const int HEIGHT = 720;
-const int FRAMES = 900;        // Long movie to handle the deep zoom smoothly
-const int ITERATIONS = 2000;   // High iterations needed for fine details at deep zoom
+const int FRAMES = 500;       
 
-// --- Deep Zoom Targets ---
-// We zoom into a specific substructure within the Period-3 window
-const double START_LAM_CENTER = 3.2;
-const double START_LAM_WIDTH = 1.6; 
+// --- HIGH DENSITY Iteration Settings ---
+const int BASE_ITERATIONS = 10000;    // Start with a very solid image
+const double ITERATION_SCALE = 20.0;  // Aggressive scaling
+// Math: At 100,000x zoom, this runs ~2,000,000 iterations per pixel column.
 
-// A specific point known to look like a "mini" bifurcation diagram
-const double TARGET_LAM_CENTER = 3.854077963; 
-const double TOTAL_ZOOM = 50000.0; // 50,000x magnification
+// --- Steady Zoom Targets ---
+// Period 3 Accumulation Point
+const double CENTER_LAM = 3.8540779635; 
+const double CENTER_X = 0.500;
 
-// We also focus Y on the upper branch
-const double START_X_CENTER = 0.5;
-const double START_X_WIDTH = 1.0;
-
-const double TARGET_X_CENTER = 0.514; // The specific branch we follow
-const double TARGET_X_WIDTH = 0.15;   // We tighten the Y-axis too
+const double START_LAM_WIDTH = 3.0;
+const double START_X_HEIGHT  = 1.2;
+const double ZOOM_FACTOR = 50000.0; 
 
 // --- Color ---
 struct Color { uint8_t r, g, b; };
 const Color WHITE = {255, 255, 255};
 
-Color get_heat_color(int i, int max_i) {
-    // Non-linear color mapping to make the deep details pop
-    double t = static_cast<double>(i) / max_i;
-    t = std::pow(t, 0.7); // Gamma correction for better contrast
+Color get_heat_color(int i, int current_max_i) {
+    double t = static_cast<double>(i) / current_max_i;
+    
+    // Aggressive Gamma Correction
+    // With 2 million iterations, the early "blue" points are a tiny fraction.
+    // We use pow(t, 0.5) to stretch the blue/purple range so it remains visible.
+    t = std::pow(t, 0.5); 
+    
     if (t < 0) t = 0; if (t > 1) t = 1;
     
     uint8_t r = static_cast<uint8_t>(255 * t);
@@ -68,69 +69,63 @@ public:
 };
 
 int main() {
-    std::cout << "Initializing Deep Zoom (x" << TOTAL_ZOOM << ")..." << std::endl;
+    std::cout << "Initializing HIGH DENSITY Adaptive Zoom..." << std::endl;
     Canvas canvas(WIDTH, HEIGHT);
 
     for (int frame = 0; frame < FRAMES; ++frame) {
         
-        // 1. Exponential Interpolation (The key to deep zooming)
-        // t goes from 0 to 1 linear
         double t = static_cast<double>(frame) / (FRAMES - 1);
-        
-        // ease_t is exponential: This makes the zoom speed visually constant
-        double zoom_factor = std::pow(TOTAL_ZOOM, t);
 
-        // Calculate current view width
-        double cur_lam_width = START_LAM_WIDTH / zoom_factor;
-        double cur_x_width = START_X_WIDTH / std::pow(zoom_factor, 0.5); // Zoom Y slower than X looks better
+        // 1. Calculate Zoom
+        double current_zoom = std::pow(ZOOM_FACTOR, t);
 
-        // Interpolate centers
-        double cur_lam_center = START_LAM_CENTER + (TARGET_LAM_CENTER - START_LAM_CENTER) * t;
-        double cur_x_center = START_X_CENTER + (TARGET_X_CENTER - START_X_CENTER) * t;
+        // 2. Calculate ADAPTIVE Iteration Count
+        // Will reach approx 2,000,000 at the end
+        long long current_iter_limit = BASE_ITERATIONS + static_cast<long long>(current_zoom * ITERATION_SCALE);
 
-        // Derived bounds
-        double cur_lam_min = cur_lam_center - cur_lam_width / 2.0;
-        double cur_lam_max = cur_lam_center + cur_lam_width / 2.0;
-        double cur_x_min = cur_x_center - cur_x_width / 2.0;
-        double cur_x_max = cur_x_center + cur_x_width / 2.0;
+        // 3. Viewport Bounds (Fixed Center)
+        double cur_lam_width = START_LAM_WIDTH / current_zoom;
+        double cur_x_height  = START_X_HEIGHT / std::pow(current_zoom, 0.85); 
+
+        double min_lam = CENTER_LAM - cur_lam_width / 2.0;
+        double max_lam = CENTER_LAM + cur_lam_width / 2.0;
+        double min_x   = CENTER_X - cur_x_height / 2.0;
+        double max_x   = CENTER_X + cur_x_height / 2.0;
 
         canvas.clear();
 
-        // 2. Render
-        #pragma omp parallel for
+        // Render Loop
         for (int col = 0; col < WIDTH; ++col) {
+            
             double col_t = static_cast<double>(col) / (WIDTH - 1);
-            double lam = cur_lam_min + col_t * (cur_lam_max - cur_lam_min);
+            double lam = min_lam + col_t * (max_lam - min_lam);
+            double x = 0.5; 
 
-            double x = 0.5;
-
-            // Iterate
-            for (int i = 0; i < ITERATIONS; ++i) {
+            // Dynamic Loop Length
+            for (long long i = 0; i < current_iter_limit; ++i) {
                 x = lam * x * (1.0 - x);
                 
-                // Check bounds
-                if (x >= cur_x_min && x <= cur_x_max) {
-                    // Normalize to screen
-                    double row_t = (x - cur_x_min) / (cur_x_max - cur_x_min);
+                if (x >= min_x && x <= max_x) {
+                    double row_t = (x - min_x) / (max_x - min_x);
                     int row = static_cast<int>(row_t * (HEIGHT - 1));
                     
-                    // Draw with transparency simulation (simple overwrite here, but fine for video)
-                    canvas.set_pixel(col, row, get_heat_color(i, ITERATIONS));
+                    // Use the full iteration limit for coloring to maintain gradient consistency
+                    canvas.set_pixel(col, row, get_heat_color(i, current_iter_limit));
                 }
             }
         }
 
-        // 3. Save
         std::ostringstream filename;
         filename << "/tmp/frame_" << std::setw(4) << std::setfill('0') << frame << ".ppm";
         canvas.save_ppm(filename.str());
 
-        if (frame % 20 == 0) {
+        if (frame % 10 == 0) {
             std::cout << "Frame " << frame << "/" << FRAMES 
-                      << " [Zoom x" << (int)zoom_factor << "]\r" << std::flush;
+                      << " [Zoom x" << (int)current_zoom 
+                      << " | Iters: " << current_iter_limit << "]\r" << std::flush;
         }
     }
 
-    std::cout << "\nDeep Zoom Complete." << std::endl;
+    std::cout << "\nHigh Density Zoom complete." << std::endl;
     return 0;
 }
