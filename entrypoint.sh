@@ -40,7 +40,7 @@ case "$MODE" in
     fi
 
     echo ">>> [Orbit] Compiling C++ code..."
-    g++ -O3 cobweb_movie.cpp -o movie_gen_exec
+    g++ -O3 ./src/cobweb_movie.cpp -o movie_gen_exec
 
     echo ">>> [Orbit] Generating Frames (Lambda=$PARAM)..."
     ./movie_gen_exec $PARAM
@@ -56,7 +56,7 @@ case "$MODE" in
     # MODE 2: Moving Lambda (Structural Stability)
     # ==========================================
     echo ">>> [Sweep] Compiling C++ code..."
-    g++ -O3 critical_sweep.cpp -o movie_gen_exec
+    g++ -O3 ./src/critical_sweep.cpp -o movie_gen_exec
 
     echo ">>> [Sweep] Generating Frames (Lambda Sweep)..."
     ./movie_gen_exec
@@ -72,7 +72,7 @@ case "$MODE" in
     # MODE 3: Rainbow Bifurcation Scanning Movie
     # ==========================================
     echo ">>> [Rainbow] Compiling C++ code..."
-    g++ -O3 rainbow_bifurcation.cpp -o movie_gen_exec
+    g++ -O3 ./src/rainbow_bifurcation.cpp -o movie_gen_exec
 
     echo ">>> [Rainbow] Painting the chaos..."
     ./movie_gen_exec
@@ -87,7 +87,7 @@ case "$MODE" in
     "rainbow_sweep")
     # --- MODE 4: Rainbow Sweep (Projected Lines) ---
     echo ">>> [Rainbow Sweep] Compiling..."
-    g++ -O3 rainbow_sweep.cpp -o movie_gen_exec
+    g++ -O3 ./src/rainbow_sweep.cpp -o movie_gen_exec
     
     echo ">>> [Rainbow Sweep] Generating Frames..."
     ./movie_gen_exec
@@ -101,7 +101,7 @@ case "$MODE" in
     "zoom")
     # --- MODE 5: Fractal Zoom Movie ---
     echo ">>> [Zoom] Compiling..."
-    g++ -O3 zoom_bifurcation.cpp -o movie_gen_exec
+    g++ -O3 ./src/zoom_bifurcation.cpp -o movie_gen_exec
     
     echo ">>> [Zoom] Rendering Zoom Sequence (This may take a moment)..."
     ./movie_gen_exec
@@ -115,7 +115,7 @@ case "$MODE" in
     "chaos")
     # --- MODE 10: Real Line Density Histogram ---
     echo ">>> [Density] Compiling..."
-    g++ -O3 real_density.cpp -o movie_gen_exec
+    g++ -O3 ./src/real_density.cpp -o movie_gen_exec
     
     echo ">>> [Density] Generating Invariant Measures..."
     ./movie_gen_exec
