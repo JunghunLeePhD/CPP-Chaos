@@ -17,9 +17,10 @@ cleanup() {
 usage() {
     echo "Error: Invalid or missing mode."
     echo "Usage:"
-    echo "  1. ./entrypoint.sh orbit <lambda>   (e.g., 3.9) -> Visualizes cobweb for specific lambda"
-    echo "  2. ./entrypoint.sh sweep            -> Visualizes changing lambda from 2.8 to 4.0"
-    echo "  3. ./entrypoint.sh rainbow          -> Generates Bifurcation Movie (scanning left-to-right)"
+    echo "  1. bash entrypoint.sh orbit <lambda>   (e.g., 3.9) -> Visualizes cobweb for specific lambda"
+    echo "  2. bash entrypoint.sh sweep            -> Visualizes changing lambda from 2.8 to 4.0"
+    echo "  3. bash entrypoint.sh rainbow          -> Generates Bifurcation Movie (scanning left-to-right)"
+    echo "  4. bash entrypoint.sh zoom          -> Generates Zoom Bifurcation Movie"
     exit 1
 }
 
