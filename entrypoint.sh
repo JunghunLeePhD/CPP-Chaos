@@ -21,6 +21,7 @@ usage() {
     echo "  2. bash entrypoint.sh sweep            -> Visualizes changing lambda from 2.8 to 4.0"
     echo "  3. bash entrypoint.sh rainbow          -> Generates Bifurcation Movie (scanning left-to-right)"
     echo "  4. bash entrypoint.sh zoom          -> Generates Zoom Bifurcation Movie"
+    echo "  5. bash entrypoint.sh chaos          -> Generates Julia set Movie"
     exit 1
 }
 
@@ -107,6 +108,20 @@ case "$MODE" in
     
     OUTPUT="logistic_fractal_zoom.mp4"
     echo ">>> [Zoom] Stitching Movie: $OUTPUT"
+    ffmpeg -y -framerate 30 -i /tmp/frame_%04d.ppm \
+        -c:v libx264 -pix_fmt yuv420p "$OUTPUT" -loglevel error
+    ;;
+
+    "chaos")
+    # --- MODE 10: Real Line Density Histogram ---
+    echo ">>> [Density] Compiling..."
+    g++ -O3 real_density.cpp -o movie_gen_exec
+    
+    echo ">>> [Density] Generating Invariant Measures..."
+    ./movie_gen_exec
+    
+    OUTPUT="logistic_real_density.mp4"
+    echo ">>> [Density] Rendering Movie: $OUTPUT"
     ffmpeg -y -framerate 30 -i /tmp/frame_%04d.ppm \
         -c:v libx264 -pix_fmt yuv420p "$OUTPUT" -loglevel error
     ;;
