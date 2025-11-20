@@ -97,6 +97,19 @@ case "$MODE" in
         -c:v libx264 -pix_fmt yuv420p "$OUTPUT" -loglevel error
     ;;
 
+    "zoom")
+    # --- MODE 5: Fractal Zoom Movie ---
+    echo ">>> [Zoom] Compiling..."
+    g++ -O3 zoom_bifurcation.cpp -o movie_gen_exec
+    
+    echo ">>> [Zoom] Rendering Zoom Sequence (This may take a moment)..."
+    ./movie_gen_exec
+    
+    OUTPUT="logistic_fractal_zoom.mp4"
+    echo ">>> [Zoom] Stitching Movie: $OUTPUT"
+    ffmpeg -y -framerate 30 -i /tmp/frame_%04d.ppm \
+        -c:v libx264 -pix_fmt yuv420p "$OUTPUT" -loglevel error
+    ;;
     *)
     usage
     ;;

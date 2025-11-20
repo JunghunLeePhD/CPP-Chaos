@@ -23,7 +23,7 @@ const double CENTER_X = 0.500;
 
 const double START_LAM_WIDTH = 3.0;
 const double START_X_HEIGHT  = 1.2;
-const double ZOOM_FACTOR = 50000.0; 
+const double ZOOM_FACTOR = 500.0; 
 
 // --- Color ---
 struct Color { uint8_t r, g, b; };
