@@ -7,33 +7,37 @@
 #include <sstream>
 
 // --- Configuration ---
-const int WIDTH = 800;        
-const int HEIGHT = 600;       
-const int FRAMES = 450;       // Total frames in the zoom movie
-const int ITERATIONS = 800;   // High iterations needed to see detail when zoomed
+const int WIDTH = 1280;
+const int HEIGHT = 720;
+const int FRAMES = 900;        // Long movie to handle the deep zoom smoothly
+const int ITERATIONS = 2000;   // High iterations needed for fine details at deep zoom
 
-// --- Zoom Targets (Period 3 Window) ---
-// We start at the full view and zoom into this specific window
-const double START_LAM_MIN = 2.8;
-const double START_LAM_MAX = 4.0;
-const double TARGET_LAM_MIN = 3.8284;  // Start of Period 3
-const double TARGET_LAM_MAX = 3.8571;  // End of Period 3
+// --- Deep Zoom Targets ---
+// We zoom into a specific substructure within the Period-3 window
+const double START_LAM_CENTER = 3.2;
+const double START_LAM_WIDTH = 1.6; 
 
-// We also zoom X slightly to frame the middle branch
-const double START_X_MIN = 0.0;
-const double START_X_MAX = 1.0;
-const double TARGET_X_MIN = 0.45;
-const double TARGET_X_MAX = 0.56;
+// A specific point known to look like a "mini" bifurcation diagram
+const double TARGET_LAM_CENTER = 3.854077963; 
+const double TOTAL_ZOOM = 50000.0; // 50,000x magnification
 
-// --- Color Management ---
+// We also focus Y on the upper branch
+const double START_X_CENTER = 0.5;
+const double START_X_WIDTH = 1.0;
+
+const double TARGET_X_CENTER = 0.514; // The specific branch we follow
+const double TARGET_X_WIDTH = 0.15;   // We tighten the Y-axis too
+
+// --- Color ---
 struct Color { uint8_t r, g, b; };
 const Color WHITE = {255, 255, 255};
-const Color BLACK = {0, 0, 0};
 
-// Rainbow Heatmap (Blue -> Red)
 Color get_heat_color(int i, int max_i) {
+    // Non-linear color mapping to make the deep details pop
     double t = static_cast<double>(i) / max_i;
+    t = std::pow(t, 0.7); // Gamma correction for better contrast
     if (t < 0) t = 0; if (t > 1) t = 1;
+    
     uint8_t r = static_cast<uint8_t>(255 * t);
     uint8_t g = 0;
     uint8_t b = static_cast<uint8_t>(255 * (1.0 - t));
@@ -46,10 +50,7 @@ class Canvas {
 public:
     Canvas(int w, int h) : width(w), height(h), pixels(w * h, WHITE) {}
 
-    // Reset canvas to white for the next frame
-    void clear() {
-        std::fill(pixels.begin(), pixels.end(), WHITE);
-    }
+    void clear() { std::fill(pixels.begin(), pixels.end(), WHITE); }
 
     void set_pixel(int x, int y, Color c) {
         int true_y = height - 1 - y;
@@ -66,70 +67,70 @@ public:
     }
 };
 
-// Linear interpolation helper
-double lerp(double start, double end, double t) {
-    return start + t * (end - start);
-}
-
 int main() {
-    std::cout << "Initializing Zoom Sequence..." << std::endl;
+    std::cout << "Initializing Deep Zoom (x" << TOTAL_ZOOM << ")..." << std::endl;
     Canvas canvas(WIDTH, HEIGHT);
 
     for (int frame = 0; frame < FRAMES; ++frame) {
         
-        // 1. Calculate Zoom Factor (Exponential Ease-In)
-        // t goes from 0.0 to 1.0 over the course of the movie
+        // 1. Exponential Interpolation (The key to deep zooming)
+        // t goes from 0 to 1 linear
         double t = static_cast<double>(frame) / (FRAMES - 1);
-        // We square t to make the zoom start slow and speed up (ease-in)
-        // or we can use linear. Let's use linear for predictable scaling.
         
-        // 2. Calculate Current Viewport Bounds
-        double cur_lam_min = lerp(START_LAM_MIN, TARGET_LAM_MIN, t);
-        double cur_lam_max = lerp(START_LAM_MAX, TARGET_LAM_MAX, t);
-        double cur_x_min   = lerp(START_X_MIN, TARGET_X_MIN, t);
-        double cur_x_max   = lerp(START_X_MAX, TARGET_X_MAX, t);
+        // ease_t is exponential: This makes the zoom speed visually constant
+        double zoom_factor = std::pow(TOTAL_ZOOM, t);
+
+        // Calculate current view width
+        double cur_lam_width = START_LAM_WIDTH / zoom_factor;
+        double cur_x_width = START_X_WIDTH / std::pow(zoom_factor, 0.5); // Zoom Y slower than X looks better
+
+        // Interpolate centers
+        double cur_lam_center = START_LAM_CENTER + (TARGET_LAM_CENTER - START_LAM_CENTER) * t;
+        double cur_x_center = START_X_CENTER + (TARGET_X_CENTER - START_X_CENTER) * t;
+
+        // Derived bounds
+        double cur_lam_min = cur_lam_center - cur_lam_width / 2.0;
+        double cur_lam_max = cur_lam_center + cur_lam_width / 2.0;
+        double cur_x_min = cur_x_center - cur_x_width / 2.0;
+        double cur_x_max = cur_x_center + cur_x_width / 2.0;
 
         canvas.clear();
 
-        // 3. Render the entire diagram for this frame
-        // We iterate over screen columns (pixels)
+        // 2. Render
+        #pragma omp parallel for
         for (int col = 0; col < WIDTH; ++col) {
-            
-            // Map pixel col -> Lambda
             double col_t = static_cast<double>(col) / (WIDTH - 1);
             double lam = cur_lam_min + col_t * (cur_lam_max - cur_lam_min);
 
-            double x = 0.5; // Always start at critical point
+            double x = 0.5;
 
-            // Run orbit
+            // Iterate
             for (int i = 0; i < ITERATIONS; ++i) {
                 x = lam * x * (1.0 - x);
                 
-                // Map value x -> pixel row
-                // We must check if x is within our CURRENT zoomed view
+                // Check bounds
                 if (x >= cur_x_min && x <= cur_x_max) {
+                    // Normalize to screen
                     double row_t = (x - cur_x_min) / (cur_x_max - cur_x_min);
                     int row = static_cast<int>(row_t * (HEIGHT - 1));
                     
-                    Color c = get_heat_color(i, ITERATIONS);
-                    canvas.set_pixel(col, row, c);
+                    // Draw with transparency simulation (simple overwrite here, but fine for video)
+                    canvas.set_pixel(col, row, get_heat_color(i, ITERATIONS));
                 }
             }
         }
 
-        // 4. Save Frame
+        // 3. Save
         std::ostringstream filename;
         filename << "/tmp/frame_" << std::setw(4) << std::setfill('0') << frame << ".ppm";
         canvas.save_ppm(filename.str());
 
-        if (frame % 10 == 0) {
-            std::cout << "Rendered Frame " << frame << "/" << FRAMES 
-                      << " (Zoom: " << std::fixed << std::setprecision(4) 
-                      << (START_LAM_MAX - START_LAM_MIN) / (cur_lam_max - cur_lam_min) 
-                      << "x)\r" << std::flush;
+        if (frame % 20 == 0) {
+            std::cout << "Frame " << frame << "/" << FRAMES 
+                      << " [Zoom x" << (int)zoom_factor << "]\r" << std::flush;
         }
     }
 
-    std::cout << "\nZoom generation complete." << std::endl;
+    std::cout << "\nDeep Zoom Complete." << std::endl;
     return 0;
 }
