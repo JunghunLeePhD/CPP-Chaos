@@ -18,6 +18,7 @@ usage() {
     echo "Error: Invalid or missing mode."
     echo "Usage:"
     echo "  1. ./entrypoint.sh orbit <lambda>   (e.g., 3.9) -> Visualizes cobweb for specific lambda"
+    echo "  2. ./entrypoint.sh sweep            -> Visualizes changing lambda from 2.8 to 4.0"
     exit 1
 }
 
@@ -47,6 +48,22 @@ case "$MODE" in
         -c:v libx264 -pix_fmt yuv420p "$OUTPUT" -loglevel error
     ;;
  
+    "sweep")
+    # ==========================================
+    # MODE 2: Moving Lambda (Structural Stability)
+    # ==========================================
+    echo ">>> [Sweep] Compiling C++ code..."
+    g++ -O3 critical_sweep.cpp -o movie_gen_exec
+
+    echo ">>> [Sweep] Generating Frames (Lambda Sweep)..."
+    ./movie_gen_exec
+
+    OUTPUT="logistic_parameter_sweep.mp4"
+    echo ">>> [Sweep] Rendering Movie: $OUTPUT"
+    ffmpeg -y -framerate 30 -i /tmp/frame_%04d.ppm \
+        -c:v libx264 -pix_fmt yuv420p "$OUTPUT" -loglevel error
+    ;;
+
   *)
     usage
     ;;
