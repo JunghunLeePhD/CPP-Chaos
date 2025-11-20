@@ -19,6 +19,7 @@ usage() {
     echo "Usage:"
     echo "  1. ./entrypoint.sh orbit <lambda>   (e.g., 3.9) -> Visualizes cobweb for specific lambda"
     echo "  2. ./entrypoint.sh sweep            -> Visualizes changing lambda from 2.8 to 4.0"
+    echo "  3. ./entrypoint.sh rainbow          -> Generates Bifurcation Movie (scanning left-to-right)"
     exit 1
 }
 
@@ -64,7 +65,38 @@ case "$MODE" in
         -c:v libx264 -pix_fmt yuv420p "$OUTPUT" -loglevel error
     ;;
 
-  *)
+    "rainbow")
+    # ==========================================
+    # MODE 3: Rainbow Bifurcation Scanning Movie
+    # ==========================================
+    echo ">>> [Rainbow] Compiling C++ code..."
+    g++ -O3 rainbow_bifurcation.cpp -o movie_gen_exec
+
+    echo ">>> [Rainbow] Painting the chaos..."
+    ./movie_gen_exec
+
+    OUTPUT="logistic_rainbow_bifurcation.mp4"
+    echo ">>> [Rainbow] Rendering Movie: $OUTPUT"
+    # Using 60fps because this mode generates a lot of frames (scans width)
+    ffmpeg -y -framerate 60 -i /tmp/frame_%04d.ppm \
+        -c:v libx264 -pix_fmt yuv420p "$OUTPUT" -loglevel error
+    ;;
+
+    "rainbow_sweep")
+    # --- MODE 4: Rainbow Sweep (Projected Lines) ---
+    echo ">>> [Rainbow Sweep] Compiling..."
+    g++ -O3 rainbow_sweep.cpp -o movie_gen_exec
+    
+    echo ">>> [Rainbow Sweep] Generating Frames..."
+    ./movie_gen_exec
+    
+    OUTPUT="logistic_rainbow_sweep.mp4"
+    echo ">>> [Rainbow Sweep] Rendering Movie: $OUTPUT"
+    ffmpeg -y -framerate 30 -i /tmp/frame_%04d.ppm \
+        -c:v libx264 -pix_fmt yuv420p "$OUTPUT" -loglevel error
+    ;;
+
+    *)
     usage
     ;;
 esac
